@@ -3,13 +3,30 @@
 
 String receivedData = "";  // Buffer to store received data
 SemaphoreHandle_t dataSemaphore;  // Semaphore for data synchronization
+unsigned long timeoutStartTime = 0;  // Timer start time for timeout
+bool timeoutFlag = false;  // Timeout flag
+const unsigned long timeoutDuration = 2000;  // Timeout duration (2 seconds)
 
-// Task to read serial data
 void readSerialTask(void *pvParameters) {
     while (1) {
+        timeoutFlag = false;
+        timeoutStartTime = millis();  // Start the timeout timer
+
         while (Serial.available()) {
             char c = Serial.read();
             receivedData += c;  // Append received char to buffer
+
+            // Check if the timeout duration has passed
+            if (millis() - timeoutStartTime > timeoutDuration) {
+                timeoutFlag = true;  // Timeout occurred
+                break;
+            }
+        }
+
+        // If timeout occurred, print timeout message
+        if (timeoutFlag) {
+            Serial.println("Timeout got it!");
+            receivedData = "";  // Clear received data
         }
 
         // If data has been received, give the semaphore to Task 2
@@ -50,3 +67,5 @@ void setup() {
 void loop() {
     // FreeRTOS handles tasks, so no need for code in loop()
 }
+
+
