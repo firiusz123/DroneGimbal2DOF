@@ -1,37 +1,33 @@
 #include <Arduino_FreeRTOS.h>
 #include <semphr.h>
 
-String receivedData = "";  // Buffer to store received data
+String receivedData;  // Buffer to store received data
 SemaphoreHandle_t dataSemaphore;  // Semaphore for data synchronization
-unsigned long timeoutStartTime = 0;  // Timer start time for timeout
-bool timeoutFlag = false;  // Timeout flag
-const unsigned long timeoutDuration = 2000;  // Timeout duration (2 seconds)
+bool SpecialCharacterCapturing = false;
 
+// Task to read serial data
 void readSerialTask(void *pvParameters) {
     while (1) {
-        timeoutFlag = false;
-        timeoutStartTime = millis();  // Start the timeout timer
-
+      
         while (Serial.available()) {
+
             char c = Serial.read();
-            receivedData += c;  // Append received char to buffer
 
-            // Check if the timeout duration has passed
-            if (millis() - timeoutStartTime > timeoutDuration) {
-                timeoutFlag = true;  // Timeout occurred
-                break;
+            if(c == '$'){
+              if(SpecialCharacterCapturing){
+                //if already triggered it means it finished
+                SpecialCharacterCapturing = false;
+                xSemaphoreGive(dataSemaphore);
+              }
+              else{     
+                //clearing data buffer and setting the character saving to true                           
+                receivedData = "";
+                SpecialCharacterCapturing = true;              
+              }
             }
-        }
-
-        // If timeout occurred, print timeout message
-        if (timeoutFlag) {
-            Serial.println("Timeout got it!");
-            receivedData = "";  // Clear received data
-        }
-
-        // If data has been received, give the semaphore to Task 2
-        if (receivedData.length() > 0) {
-            xSemaphoreGive(dataSemaphore);
+            else if(SpecialCharacterCapturing){
+              receivedData += c;  
+            }
         }
 
         vTaskDelay(10 / portTICK_PERIOD_MS);  // Small delay to avoid CPU overload
@@ -41,9 +37,9 @@ void readSerialTask(void *pvParameters) {
 // Task to write received serial data
 void writeSerialTask(void *pvParameters) {
     while (1) {
-        // Wait for the semaphore, indicating that data is ready
+        // waiting for semaphore to let us proceed with data 
         if (xSemaphoreTake(dataSemaphore, portMAX_DELAY) == pdTRUE) {
-            // Print the received data
+            
             Serial.print("Received: ");
             Serial.println(receivedData);
             receivedData = "";  // Clear the buffer after printing
@@ -54,7 +50,7 @@ void writeSerialTask(void *pvParameters) {
 }
 
 void setup() {
-    Serial.begin(9600);  // Initialize serial communication
+    Serial.begin(9600); 
 
     // Create the semaphore
     dataSemaphore = xSemaphoreCreateBinary();
@@ -67,5 +63,4 @@ void setup() {
 void loop() {
     // FreeRTOS handles tasks, so no need for code in loop()
 }
-
 
