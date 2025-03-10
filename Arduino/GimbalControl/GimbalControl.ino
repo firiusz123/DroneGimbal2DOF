@@ -35,17 +35,43 @@ void readSerialTask(void *pvParameters) {
 }
 
 // Task to write received serial data
-void writeSerialTask(void *pvParameters) {
+void commandChecker(void *pvParameters) {
     while (1) {
-        // waiting for semaphore to let us proceed with data 
+        //checking if data is prepared 
         if (xSemaphoreTake(dataSemaphore, portMAX_DELAY) == pdTRUE) {
-            
             Serial.print("Received: ");
             Serial.println(receivedData);
-            receivedData = "";  // Clear the buffer after printing
+              // array for command 
+                char command[50];
+                //copying data 
+                strncpy(command, receivedData + 1, strlen(receivedData) - 2);
+                command[strlen(receivedData) - 2] = '\0';
+                
+                //getting the tokens by splting by # 
+                char *token = strtok(command, "#");
+                char *commandType = token;
+                float values[2];
+                int valueIndex = 0;
+                //extracting values                 
+                while ((token = strtok(NULL, "#")) != NULL && valueIndex < 2) {
+                    values[valueIndex++] = atof(token);
+                }
+            
+                Serial.print("Command: ");
+                Serial.println(commandType);
+                
+                for (int i = 0; i < valueIndex; i++) {
+                    Serial.print("Value ");
+                    Serial.print(i + 1);
+                    Serial.print(": ");
+                    Serial.println(values[i]);
+                }
+            
+
+            receivedData = "";
         }
 
-        vTaskDelay(10 / portTICK_PERIOD_MS);  // Small delay
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
 
@@ -57,7 +83,7 @@ void setup() {
 
     // Create the read and write tasks
     xTaskCreate(readSerialTask, "ReadSerialTask", 128, NULL, 1, NULL);
-    xTaskCreate(writeSerialTask, "WriteSerialTask", 128, NULL, 1, NULL);
+    xTaskCreate(commandChecker, "commandChecker", 128, NULL, 1, NULL);
 }
 
 void loop() {

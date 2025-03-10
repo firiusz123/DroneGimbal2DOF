@@ -1,0 +1,5 @@
+$SETANGLE#%f#%f$
+
+// example 
+    setting an angle 1 (z rotation ) of gimbal for 12 degree and setting angle 2 (y rotation) to 56 degree
+   $SETANGLE#12#56$  
